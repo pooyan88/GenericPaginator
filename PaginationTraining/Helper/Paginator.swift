@@ -8,7 +8,7 @@
 import Foundation
 
 @MainActor
-final class GenericPaginator<Item>: ObservableObject {
+final class Paginator<Item>: ObservableObject {
     
     enum PageState {
         case idle, loading, completed, error(Error)
@@ -20,16 +20,16 @@ final class GenericPaginator<Item>: ObservableObject {
     private(set) var hasMoreData: Bool = true
     private var isLoading = false
     
-    // The "pagination info" type is generic and opaque here.
-    private var paginationInfo: Any?
+    private var start: Int
+    private let pageSize: Int
     
-    // The "fetch function" that fetches next page of data.
-    // It takes current paginationInfo, returns new items and updated pagination info.
-    private let fetchPage: (Any?) async throws -> (items: [Item], nextPaginationInfo: Any?)
+    // fetchPage takes current start and pageSize, returns new items
+    private let fetchPage: (Int, Int) async throws -> [Item]
     
-    init(initialPaginationInfo: Any? = nil,
-         fetchPage: @escaping (Any?) async throws -> (items: [Item], nextPaginationInfo: Any?)) {
-        self.paginationInfo = initialPaginationInfo
+    init(start: Int = 0, pageSize: Int = 10,
+         fetchPage: @escaping (Int, Int) async throws -> [Item]) {
+        self.start = start
+        self.pageSize = pageSize
         self.fetchPage = fetchPage
     }
     
@@ -41,10 +41,10 @@ final class GenericPaginator<Item>: ObservableObject {
         
         Task {
             do {
-                let (newItems, newPaginationInfo) = try await fetchPage(paginationInfo)
+                let newItems = try await fetchPage(start, pageSize)
                 items.append(contentsOf: newItems)
-                paginationInfo = newPaginationInfo
-                hasMoreData = !newItems.isEmpty
+                start += newItems.count
+                hasMoreData = newItems.count == pageSize
                 state = .completed
             } catch {
                 state = .error(error)
@@ -53,8 +53,8 @@ final class GenericPaginator<Item>: ObservableObject {
         }
     }
     
-    func reset(with paginationInfo: Any? = nil) {
-        self.paginationInfo = paginationInfo
+    func reset(start: Int = 0) {
+        self.start = start
         self.items.removeAll()
         self.hasMoreData = true
         self.state = .idle

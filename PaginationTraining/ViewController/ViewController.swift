@@ -32,7 +32,7 @@ extension ViewController {
         viewModel?.$pageState
             .receive(on: DispatchQueue.main)
             .sink(receiveValue: { [weak self] state in
-                guard let self, let state = state else { return }
+                guard let self else { return }
                 switch state {
                 case .completed:
                     activityIndicator.stopAnimating()
@@ -42,6 +42,7 @@ extension ViewController {
                 case .error:
                     activityIndicator.stopAnimating()
                     tableView.isHidden = true
+                default: break
                 }
             }).store(in: &cancellables)
     }
@@ -86,7 +87,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
         guard let viewModel = viewModel else { return }
-        if indexPath.row == viewModel.items.count - 1, viewModel.hasMoreData {
+        if indexPath.row == viewModel.items.count - 1, viewModel.hasMoreData, viewModel.pageState != .error {
             print("INDEX PATH ROW ==>", indexPath.row)
             print("ITEMS COUNT ===>", viewModel.items.count - 1)
             viewModel.loadMoreIfNeeded()
