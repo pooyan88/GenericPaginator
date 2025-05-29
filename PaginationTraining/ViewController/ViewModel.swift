@@ -6,7 +6,9 @@
 //
 
 import Foundation
+import Combine
 
+@MainActor
 final class ViewModel: ObservableObject {
 
     enum PageState {
@@ -15,59 +17,53 @@ final class ViewModel: ObservableObject {
 
     @Published var items: [ResponseModel.Item] = []
     @Published var pageState: PageState?
-
-    var start = 0
-    var size: Int = 10
-    private(set) var hasMoreData: Bool = false
-    private var isLoading = false
+    private var cancellables: Set<AnyCancellable> = []
+    private let size: Int = 10
+    private var paginator: GenericPaginator<ResponseModel.Item>
 
     init() {
-        getData(start: start, size: size)
+        let pageSize = size // capture the size value locally
+
+        paginator = GenericPaginator<ResponseModel.Item>(initialPaginationInfo: 0) { currentOffset in
+            let offset = currentOffset as? Int ?? 0
+            let urlString = "https://pokeapi.co/api/v2/pokemon?offset=\(offset)&limit=\(pageSize)"
+            guard let url = URL(string: urlString) else {
+                throw URLError(.badURL)
+            }
+            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let decoded = try JSONDecoder().decode(ResponseModel.self, from: data)
+            let nextOffset = offset + decoded.results.count
+            print("URL ===>", urlString)
+            return (items: decoded.results, nextPaginationInfo: nextOffset)
+        }
+        bindPaginator()
+        paginator.loadNextPage()
     }
-}
 
-// MARK: - API Call
-extension ViewModel {
-
-    private enum MyError: Error {
-        case urlError
+    func loadMoreIfNeeded() {
+        paginator.loadNextPage()
     }
 
-    func getData(start: Int, size: Int) {
-        guard !isLoading else { return }
+    var hasMoreData: Bool {
+        paginator.hasMoreData
+    }
 
-        isLoading = true
-        pageState = .loading
+    private func bindPaginator() {
+        paginator.$items.assign(to: &$items)
 
-        Task {
-            do {
-                try await Task.sleep(for: .seconds(1))
-                let result = try await baseRequest(start: start, size: size)
-                await MainActor.run {
-                    let newItems = result.results
-                    self.items.append(contentsOf: newItems)
-                    hasMoreData = newItems.count == size
-                    self.start += size
-                    self.pageState = .completed
-                    self.isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.pageState = .error
-                    self.isLoading = false
-                }
-                print("Pagination error: \(error.localizedDescription)")
+        paginator.$state.sink { [weak self] state in
+            switch state {
+            case .loading:
+                self?.pageState = .loading
+            case .completed:
+                self?.pageState = .completed
+            case .error:
+                self?.pageState = .error
+            case .idle:
+                break
             }
         }
-    }
-
-    private func baseRequest(start: Int, size: Int) async throws -> ResponseModel {
-        let urlString = "https://pokeapi.co/api/v2/pokemon?offset=\(start)&limit=\(size)"
-        guard let url = URL(string: urlString) else { throw MyError.urlError }
-
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let decodedData = try JSONDecoder().decode(ResponseModel.self, from: data)
-        print("URL ===>" , urlString)
-        return decodedData
+        .store(in: &cancellables)
     }
 }

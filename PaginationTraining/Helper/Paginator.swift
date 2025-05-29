@@ -44,7 +44,7 @@ final class GenericPaginator<Item>: ObservableObject {
                 let (newItems, newPaginationInfo) = try await fetchPage(paginationInfo)
                 items.append(contentsOf: newItems)
                 paginationInfo = newPaginationInfo
-                hasMoreData = !newItems.isEmpty // or any other custom logic
+                hasMoreData = !newItems.isEmpty
                 state = .completed
             } catch {
                 state = .error(error)

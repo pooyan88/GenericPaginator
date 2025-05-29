@@ -85,11 +85,11 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-          guard let viewModel = viewModel else { return }
-        if indexPath.row == viewModel.items.count - 1 && viewModel.hasMoreData {
+        guard let viewModel = viewModel else { return }
+        if indexPath.row == viewModel.items.count - 1, viewModel.hasMoreData {
             print("INDEX PATH ROW ==>", indexPath.row)
             print("ITEMS COUNT ===>", viewModel.items.count - 1)
-              viewModel.getData(start: viewModel.start, size: viewModel.size)
-          }
-      }
+            viewModel.loadMoreIfNeeded()
+        }
+    }
 }
