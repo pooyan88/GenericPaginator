@@ -8,16 +8,28 @@
 import UIKit
 
 class TableViewCell: UITableViewCell {
-
-    override func awakeFromNib() {
-        super.awakeFromNib()
-        // Initialization code
-    }
-
-    override func setSelected(_ selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
+    
+    static func getHeight() -> CGFloat {
+        let eachItemHeight: CGFloat = 44
+        let margin = 16
+        return (eachItemHeight * 2) + CGFloat(margin * 2)
     }
     
+    struct Config {
+        var name: String
+        var url: String
+    }
+
+    @IBOutlet weak var nameLabel: UILabel!
+    @IBOutlet weak var urlLabel: UILabel!
+    
+}
+
+// MARK: - Setup Functions
+extension TableViewCell {
+    
+    func setup(with config: Config) {
+        nameLabel.text = config.name
+        urlLabel.text = config.url
+    }
 }
